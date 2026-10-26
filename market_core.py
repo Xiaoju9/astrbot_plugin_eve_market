@@ -107,6 +107,16 @@ def parse_command_args(args: str, default_quantity: int = 1) -> tuple[str, int]:
         return "", max(1, min(1_000_000, int(default_quantity or 1)))
     parts = text.split()
     quantity = int(default_quantity or 1)
+    # Support the in-game shorthand ``狞獾级海军型*500`` even when it is the
+    # only token.  The old implementation only looked at the last token when
+    # there were at least two tokens, so ``物品*500`` silently stayed quantity 1.
+    compact = re.match(r"^(?P<item>.+?)(?:[*×]\s*|\s+[xX]\s*)(?P<qty>\d{1,9})$", text, re.IGNORECASE)
+    if compact:
+        item = compact.group("item").strip()
+        if item:
+            quantity = int(compact.group("qty"))
+            quantity = max(1, min(1_000_000, quantity))
+            return item, quantity
     if len(parts) >= 2:
         match = _QUANTITY_RE.match(parts[-1])
         if match:

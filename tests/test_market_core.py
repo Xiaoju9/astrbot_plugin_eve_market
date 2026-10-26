@@ -32,6 +32,11 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(parse_command_args("乌鸦级 10"), ("乌鸦级", 10))
         self.assertEqual(parse_command_args("狞獾级海军型 x5"), ("狞獾级海军型", 5))
 
+    def test_quantity_compact_suffix(self) -> None:
+        self.assertEqual(parse_command_args("狞獾级海军型*500"), ("狞獾级海军型", 500))
+        self.assertEqual(parse_command_args("Raven*500"), ("Raven", 500))
+        self.assertEqual(parse_command_args("PLEX ×500"), ("PLEX", 500))
+
     def test_message_id_suffix_is_stripped(self) -> None:
         self.assertEqual(
             parse_command_args("狞獾级海军型 [MSG_ID:-1850447759]"),
