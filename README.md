@@ -1,0 +1,2 @@
+# astrbot_plugin_eve_market
+适配astrbot的EVE查价插件
