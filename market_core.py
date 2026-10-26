@@ -238,7 +238,6 @@ def format_price(
                 name,
                 "没有找到有效的买卖单。",
                 "-----------------------",
-                f"地点：{station_label}",
                 f"数据来源：{source_note}",
             ]
         )
@@ -265,7 +264,6 @@ def format_price(
         ]
     lines += [
         "-----------------------",
-        f"地点：{station_label}",
         f"数据来源：{source_note}",
     ]
     return "\n".join(lines)

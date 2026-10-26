@@ -20,6 +20,7 @@ import aiohttp
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
+from astrbot.api.message_components import At
 from astrbot.api.star import Context, Star, StarTools
 from astrbot.api.web import error_response, json_response, request
 
@@ -521,7 +522,12 @@ class EveMarketPlugin(Star):
             self.last_error = f"{type(exc).__name__}: {exc}"
             logger.exception("[EveMarket] query failed: %s", exc)
             reply = "查价失败了，ESI 或物品名可能有问题；稍后再试一次。"
-        yield event.plain_result(reply[:1800])
+        result = event.plain_result(reply[:1800])
+        sender_id = str(event.get_sender_id() or "")
+        if sender_id:
+            sender_name = str(event.get_sender_name() or sender_id)
+            result.chain.insert(0, At(name=sender_name, qq=sender_id))
+        yield result
 
     # ------------------------------------------------------------------ web
     def stats(self) -> dict[str, int]:

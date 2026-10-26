@@ -152,6 +152,7 @@ class SummaryTests(unittest.TestCase):
         self.assertIn(" -出售：123,000,000 ISK（12）", text)
         self.assertIn(" -收购：120,000,000 ISK（30）", text)
         self.assertIn(" -中间：121,500,000 ISK", text)
+        self.assertNotIn("地点：", text)
         self.assertIn("数据来源：宁静官方 ESI", text)
 
 
