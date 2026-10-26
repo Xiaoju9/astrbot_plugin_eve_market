@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EVE 市场查价</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="em-app">
+      <header class="em-header">
+        <div>
+          <p class="em-kicker">ASTRBOT PLUGIN · EVE ONLINE</p>
+          <h1>吉他市场查价</h1>
+          <p class="em-sub">只查吉他 4-4 的实时买卖单；价格来自 ESI，不是估算。</p>
+        </div>
+        <div class="em-header-actions">
+          <button class="em-btn em-btn-ghost" id="em-refresh" type="button">刷新</button>
+        </div>
+      </header>
+
+      <section class="em-cards" aria-label="状态">
+        <div class="em-card"><span>状态</span><strong id="em-enabled">-</strong></div>
+        <div class="em-card"><span>市场</span><strong id="em-market">-</strong></div>
+        <div class="em-card"><span>缓存报价</span><strong id="em-cache">-</strong></div>
+        <div class="em-card"><span>别名</span><strong id="em-aliases-count">-</strong></div>
+      </section>
+
+      <p class="em-hint" id="em-hint">正在读取插件状态…</p>
+
+      <section class="em-grid">
+        <div class="em-panel">
+          <div class="em-panel-head">
+            <h2>查价设置</h2>
+            <button class="em-btn em-btn-primary" id="em-save" type="button">保存</button>
+          </div>
+          <form class="em-form" id="em-settings">
+            <label class="em-row em-row-inline">
+              <span>启用插件</span>
+              <input id="em-field-enabled" type="checkbox" />
+            </label>
+            <label class="em-row">
+              <span>指令名（逗号分隔）</span>
+              <input id="em-field-commands" type="text" placeholder="查价,市场,eve" />
+            </label>
+            <label class="em-row em-row-inline">
+              <span>只查吉他 4-4</span>
+              <input id="em-field-station-only" type="checkbox" />
+            </label>
+            <div class="em-two">
+              <label class="em-row">
+                <span>星域 ID</span>
+                <input id="em-field-region" type="number" min="1" step="1" />
+              </label>
+              <label class="em-row">
+                <span>空间站 ID</span>
+                <input id="em-field-station" type="number" min="0" step="1" />
+              </label>
+            </div>
+            <div class="em-two">
+              <label class="em-row">
+                <span>缓存秒数</span>
+                <input id="em-field-cache" type="number" min="0" step="1" />
+              </label>
+              <label class="em-row">
+                <span>最多翻页</span>
+                <input id="em-field-pages" type="number" min="1" max="50" step="1" />
+              </label>
+            </div>
+            <label class="em-row">
+              <span>额外别名（一行一个：别名=物品名）</span>
+              <textarea id="em-field-extra" rows="5" placeholder="大盾传=Large Shield Transporter II&#10;小乌鸦=乌鸦级"></textarea>
+            </label>
+            <p class="em-note">更完整的设置也可以直接用 AstrBot 的插件配置页；这里保存的是同一份配置。</p>
+          </form>
+        </div>
+
+        <div class="em-panel">
+          <div class="em-panel-head">
+            <h2>别名管理</h2>
+          </div>
+          <form class="em-inline-form" id="em-alias-form">
+            <input id="em-alias-name" type="text" placeholder="别名，例如 大盾传" />
+            <input id="em-alias-target" type="text" placeholder="物品名或 type_id" />
+            <button class="em-btn em-btn-primary" type="submit">添加</button>
+          </form>
+          <div class="em-table-wrap">
+            <table class="em-table">
+              <thead>
+                <tr><th>别名</th><th>目标</th><th>type_id</th><th></th></tr>
+              </thead>
+              <tbody id="em-alias-rows">
+                <tr><td colspan="4" class="em-empty">加载中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="em-panel em-test-panel">
+        <div class="em-panel-head">
+          <h2>测试查询</h2>
+          <button class="em-btn em-btn-ghost" id="em-clear-cache" type="button">清空报价缓存</button>
+        </div>
+        <form class="em-inline-form" id="em-test-form">
+          <input id="em-test-input" type="text" placeholder="乌鸦级 10" />
+          <button class="em-btn em-btn-primary" type="submit">查询</button>
+        </form>
+        <pre class="em-result" id="em-test-result">查询结果会显示在这里。</pre>
+      </section>
+
+      <div class="em-toast" id="em-toast" role="status" aria-live="polite"></div>
+    </main>
+  </body>
+</html>

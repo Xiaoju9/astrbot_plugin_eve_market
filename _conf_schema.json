@@ -1,0 +1,57 @@
+{
+  "enabled": {
+    "type": "bool",
+    "description": "启用插件",
+    "default": true
+  },
+  "command_names": {
+    "type": "string",
+    "description": "指令名，用逗号或空格分隔（例如：查价,市场,eve）",
+    "default": "查价,市场,eve"
+  },
+  "command_prefixes": {
+    "type": "string",
+    "description": "允许的指令前缀，例如 /!#；留空则只允许不带前缀的指令",
+    "default": "/!#"
+  },
+  "allow_bare_command": {
+    "type": "bool",
+    "description": "允许不带前缀直接使用指令（例如直接发“查价 乌鸦级”）",
+    "default": true
+  },
+  "station_only": {
+    "type": "bool",
+    "description": "只查吉他 4-4 空间站；关闭则查整个 Forge 星域",
+    "default": true
+  },
+  "region_id": {
+    "type": "int",
+    "description": "星域 ID（默认 10000002 = The Forge / 吉他）",
+    "default": 10000002
+  },
+  "station_id": {
+    "type": "int",
+    "description": "空间站 ID（默认 60003760 = 吉他 4-4）",
+    "default": 60003760
+  },
+  "max_pages": {
+    "type": "int",
+    "description": "ESI 订单最多翻页数；越大越慢，默认 10",
+    "default": 10
+  },
+  "cache_ttl": {
+    "type": "int",
+    "description": "报价缓存秒数，0 表示不缓存",
+    "default": 300
+  },
+  "request_timeout": {
+    "type": "int",
+    "description": "ESI 请求超时秒数",
+    "default": 15
+  },
+  "extra_aliases": {
+    "type": "text",
+    "description": "额外别名，一行一个：别名=物品名（或 type_id）",
+    "default": ""
+  }
+}
