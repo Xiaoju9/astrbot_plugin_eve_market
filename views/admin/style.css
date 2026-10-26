@@ -68,6 +68,9 @@ h2 { margin: 0; font-size: 16px; }
 .em-row-inline input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
 .em-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .em-note { margin: 0; color: var(--muted); font-size: 12px; }
+.em-rules { display: grid; gap: 10px; color: var(--text); font-size: 13px; line-height: 1.7; }
+.em-rules p { margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
+.em-rules code { color: var(--accent); background: rgba(56, 189, 248, 0.08); padding: 1px 5px; border-radius: 4px; }
 
 .em-btn { border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 9px; padding: 8px 14px; font-weight: 600; }
 .em-btn:hover { border-color: var(--accent); }

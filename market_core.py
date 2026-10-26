@@ -17,7 +17,14 @@ JITA_REGION_ID = 10000002  # The Forge
 JITA_STATION_ID = 60003760  # Jita IV - Moon 4 - Caldari Navy Assembly Plant
 JITA_STATION_NAME = "吉他 4-4"
 
+# PLEX is not listed in The Forge; CCP quotes it in the special GPMR-01 market.
+PLEX_TYPE_ID = 44992
+PLEX_REGION_ID = 19000001
+PLEX_REGION_NAME = "GPMR-01"
+PLEX_DEFAULT_QUANTITY = 500
+
 _QUANTITY_RE = re.compile(r"^(?:x|×|\*)?\s*(\d{1,9})$", re.IGNORECASE)
+_MESSAGE_ARTIFACT_RE = re.compile(r"\[(?:MSG_ID|CQ|At|Reply)[^\]]*\]", re.IGNORECASE)
 
 
 @dataclass
@@ -65,12 +72,29 @@ class PriceSummary:
         }
 
 
+def clean_message_text(value: str) -> str:
+    """Remove OneBot protocol artifacts such as ``[MSG_ID:123]``.
+
+    aiocqhttp appends these to ``message_str`` when a CQ message is
+    reconstructed; they must not become part of an item name.
+    """
+    text = str(value or "")
+    text = _MESSAGE_ARTIFACT_RE.sub(" ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def normalize_name(value: str) -> str:
-    """Normalize an item/alias name for matching, without destroying CJK."""
+    """Normalize an item name for matching, without destroying CJK."""
     text = unicodedata.normalize("NFKC", str(value or "")).strip().casefold()
     text = text.replace("（", "(").replace("）", ")")
     text = re.sub(r"\s+", "", text)
     return text[:120]
+
+
+def has_explicit_quantity(args: str) -> bool:
+    """Return whether the final argument is an explicit quantity."""
+    parts = str(args or "").strip().split()
+    return bool(parts and _QUANTITY_RE.match(parts[-1]))
 
 
 def parse_command_args(args: str, default_quantity: int = 1) -> tuple[str, int]:
@@ -78,7 +102,7 @@ def parse_command_args(args: str, default_quantity: int = 1) -> tuple[str, int]:
 
     Returns ``(item_name, quantity)``.  Quantity is clamped to 1..1_000_000.
     """
-    text = str(args or "").strip()
+    text = clean_message_text(args)
     if not text:
         return "", max(1, min(1_000_000, int(default_quantity or 1)))
     parts = text.split()
@@ -163,10 +187,6 @@ def summarize_orders(
 def fmt_isk(value: float | None) -> str:
     if value is None:
         return "无"
-    if abs(value) >= 1_000_000_000:
-        return f"{value / 1_000_000_000:,.2f}B ISK"
-    if abs(value) >= 1_000_000:
-        return f"{value / 1_000_000:,.2f}M ISK"
     return f"{value:,.0f} ISK"
 
 
@@ -183,42 +203,61 @@ def format_price(
     quantity: int = 1,
     station_label: str = JITA_STATION_NAME,
     fetched_at: datetime | None = None,
-    source_note: str = "ESI",
+    source_note: str = "宁静官方 ESI",
 ) -> str:
+    """Render the same layout the Koishi evemarket2 plugin uses.
+
+    The source plugin replies with plain text:
+        item
+         -出售：1,234 ISK(volume)
+         -收购：1,200 ISK(volume)
+         -中间：1,217 ISK
+    AstrBot cannot send the ``<p>`` wrapper, so the layout is kept and the
+    location/source footer is added as plain text.
+    """
     name = item.display_name if isinstance(item, MarketItem) else str(item)
+    if isinstance(item, MarketItem) and item.type_id == PLEX_TYPE_ID:
+        name = "PLEX"
     quantity = max(1, int(quantity or 1))
     fetched_at = fetched_at or datetime.now(timezone.utc)
-    local_time = fetched_at.astimezone().strftime("%m-%d %H:%M:%S")
-    lines = [f"【{station_label}】{name}"]
+    _ = fetched_at  # kept for API compatibility; the source format has no clock
+
     if summary.sell_min is None and summary.buy_max is None:
-        lines.append("这个地点目前没有可用的买卖单。")
-        lines.append(f"数据：{source_note} / {local_time}")
-        return "\n".join(lines)
-
-    if summary.sell_min is not None:
-        lines.append(
-            f"卖单最低：{fmt_isk(summary.sell_min)}"
-            f"（该价 {fmt_int(summary.sell_min_volume)} 件，卖单共 {fmt_int(summary.sell_total_volume)} 件）"
+        return "\n".join(
+            [
+                name,
+                "没有找到有效的买卖单。",
+                "-----------------------",
+                f"地点：{station_label}",
+                f"数据来源：{source_note}",
+            ]
         )
-    else:
-        lines.append("卖单最低：无")
-    if summary.buy_max is not None:
-        lines.append(
-            f"收单最高：{fmt_isk(summary.buy_max)}"
-            f"（该价 {fmt_int(summary.buy_max_volume)} 件，收单共 {fmt_int(summary.buy_total_volume)} 件）"
-        )
-    else:
-        lines.append("收单最高：无")
 
-    if summary.spread is not None and summary.spread_pct is not None:
-        lines.append(f"价差：{fmt_isk(summary.spread)}（{summary.spread_pct:.2f}%）")
+    sell = summary.sell_min
+    buy = summary.buy_max
+    mid = (sell + buy) / 2 if sell is not None and buy is not None else None
+    sell_text = fmt_isk(sell)
+    buy_text = fmt_isk(buy)
+    mid_text = fmt_isk(mid)
 
+    lines = [
+        name,
+        f" -出售：{sell_text}（{fmt_int(summary.sell_min_volume)}）",
+        f" -收购：{buy_text}（{fmt_int(summary.buy_max_volume)}）",
+        f" -中间：{mid_text}",
+    ]
     if quantity > 1:
-        buy_total = summary.sell_min * quantity if summary.sell_min is not None else None
-        lines.append(f"{quantity} 件按最低卖单约：{fmt_isk(buy_total)}")
-    lines.append(f"数据：{source_note} / {local_time}")
-    if not summary.used_station:
-        lines.append("提示：该地点没有挂单，已回退到整个星域报价。")
+        lines += [
+            f"{name}*{quantity}",
+            f" -出售：{fmt_isk(sell * quantity if sell is not None else None)}",
+            f" -收购：{fmt_isk(buy * quantity if buy is not None else None)}",
+            f" -中间：{fmt_isk(mid * quantity if mid is not None else None)}",
+        ]
+    lines += [
+        "-----------------------",
+        f"地点：{station_label}",
+        f"数据来源：{source_note}",
+    ]
     return "\n".join(lines)
 
 

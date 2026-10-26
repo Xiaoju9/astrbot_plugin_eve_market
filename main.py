@@ -1,7 +1,7 @@
 """EVE market price checker for AstrBot.
 
-First version is deliberately focused on Jita (吉他 4-4): exact ESI prices,
-local aliases, configurable command names, and a small admin UI.
+Only exact in-game item names (Chinese or English) are accepted.  The reply
+layout follows the Koishi evemarket2 plugin.
 """
 
 from __future__ import annotations
@@ -28,14 +28,19 @@ try:  # plugin package import
         JITA_REGION_ID,
         JITA_STATION_ID,
         JITA_STATION_NAME,
+        PLEX_DEFAULT_QUANTITY,
+        PLEX_REGION_ID,
+        PLEX_REGION_NAME,
+        PLEX_TYPE_ID,
         MarketItem,
         PriceSummary,
+        clean_message_text,
         fmt_int,
         fmt_isk,
         format_price,
+        has_explicit_quantity,
         normalize_name,
         parse_command_args,
-        suggestion_list,
         summarize_orders,
     )
 except ImportError:  # local unit tests
@@ -43,29 +48,25 @@ except ImportError:  # local unit tests
         JITA_REGION_ID,
         JITA_STATION_ID,
         JITA_STATION_NAME,
+        PLEX_DEFAULT_QUANTITY,
+        PLEX_REGION_ID,
+        PLEX_REGION_NAME,
+        PLEX_TYPE_ID,
         MarketItem,
         PriceSummary,
+        clean_message_text,
         fmt_int,
         fmt_isk,
         format_price,
+        has_explicit_quantity,
         normalize_name,
         parse_command_args,
-        suggestion_list,
         summarize_orders,
     )
 
 PLUGIN_NAME = "astrbot_plugin_eve_market"
 ESI_BASE = "https://esi.evetech.net/latest"
 DEFAULT_COMMANDS = "查价,市场,eve"
-BUILTIN_ALIASES = {
-    "大盾传": "Large Remote Shield Booster II",
-    "中盾传": "Medium Remote Shield Booster II",
-    "小盾传": "Small Remote Shield Booster II",
-    "大盾扩": "Large Shield Extender II",
-    "小盾扩": "Small Shield Extender II",
-    "海军神示": "Revelation Navy Issue",
-    "乌鸦": "Raven",
-}
 
 
 class EsiError(RuntimeError):
@@ -227,18 +228,8 @@ class EveMarketPlugin(Star):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.data_dir / "market.db"
         self._init_db()
-        self._load_extra_aliases()
         self.context.register_web_api(
             f"/{PLUGIN_NAME}/status", self.api_status, ["GET"], "EVE market status"
-        )
-        self.context.register_web_api(
-            f"/{PLUGIN_NAME}/aliases/list", self.api_alias_list, ["GET"], "List item aliases"
-        )
-        self.context.register_web_api(
-            f"/{PLUGIN_NAME}/aliases/add", self.api_alias_add, ["POST"], "Add item alias"
-        )
-        self.context.register_web_api(
-            f"/{PLUGIN_NAME}/aliases/delete", self.api_alias_delete, ["POST"], "Delete item alias"
         )
         self.context.register_web_api(
             f"/{PLUGIN_NAME}/cache/clear", self.api_cache_clear, ["POST"], "Clear price cache"
@@ -269,52 +260,12 @@ class EveMarketPlugin(Star):
                     volume real,
                     updated_at text not null
                 );
-                create table if not exists aliases (
-                    alias_norm text primary key,
-                    alias text not null,
-                    target text not null default '',
-                    type_id integer,
-                    created_at text not null
-                );
                 create table if not exists price_cache (
                     cache_key text primary key,
                     payload text not null,
                     expires_at real not null
                 );
                 """
-            )
-
-    def _load_extra_aliases(self) -> None:
-        # Built-ins are always present; user entries below can override them.
-        for alias, target in BUILTIN_ALIASES.items():
-            self._upsert_alias(alias, target, None)
-        raw = str(self.config.get("extra_aliases") or "")
-        for line in raw.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            alias, target = line.split("=", 1)
-            alias, target = alias.strip(), target.strip()
-            if not alias or not target:
-                continue
-            self._upsert_alias(alias, target, int(target) if target.isdigit() else None)
-
-    def _upsert_alias(self, alias: str, target: str, type_id: int | None = None) -> None:
-        alias_norm = normalize_name(alias)
-        if not alias_norm:
-            return
-        with self._connect() as con:
-            con.execute(
-                """
-                insert into aliases(alias_norm, alias, target, type_id, created_at)
-                values(?,?,?,?,?)
-                on conflict(alias_norm) do update set
-                    alias=excluded.alias, target=excluded.target,
-                    type_id=excluded.type_id, created_at=excluded.created_at
-                """,
-                (alias_norm, alias, target, type_id, _now()),
             )
 
     # ------------------------------------------------------------------ names
@@ -394,23 +345,10 @@ class EveMarketPlugin(Star):
         return MarketItem(type_id=type_id, name_zh=name_zh, name_en=name_en)
 
     async def _resolve_item(self, raw_name: str) -> MarketItem:
-        raw_name = str(raw_name or "").strip()
+        raw_name = clean_message_text(str(raw_name or "")).strip()
         if not raw_name:
             raise ValueError("请告诉我要查什么物品。")
         norm = normalize_name(raw_name)
-
-        with self._connect() as con:
-            alias_row = con.execute(
-                "select * from aliases where alias_norm=?", (norm,)
-            ).fetchone()
-        if alias_row:
-            if alias_row["type_id"]:
-                cached = self._item_from_db(int(alias_row["type_id"]))
-                if cached:
-                    return cached
-            target = str(alias_row["target"] or "")
-            if target and normalize_name(target) != norm:
-                return await self._resolve_item(target)
 
         local = self._item_from_local_name(norm)
         if local:
@@ -438,48 +376,10 @@ class EveMarketPlugin(Star):
             if rows:
                 info = await self.client.type_info(int(rows[0]["id"]))
                 if info:
-                    item = self._save_item(info)
-                    self._upsert_alias(raw_name, str(item.type_id), item.type_id)
-                    return item
+                    return self._save_item(info)
 
-        local_fuzzy = sorted(
-            (
-                (key, value)
-                for key, value in self.name_index.items()
-                if norm and norm in key and key != norm
-            ),
-            key=lambda row: len(row[0]),
-        )[:6]
-        if local_fuzzy:
-            type_id, name_zh, name_en = local_fuzzy[0][1]
-            return MarketItem(type_id=type_id, name_zh=name_zh, name_en=name_en)
-
-        with self._connect() as con:
-            fuzzy = con.execute(
-                """
-                select type_id, name_zh, name_en from items
-                where name_zh like ? or name_en like ?
-                order by length(name_zh) asc limit 6
-                """,
-                (f"%{raw_name}%", f"%{raw_name}%"),
-            ).fetchall()
-        if fuzzy:
-            first = fuzzy[0]
-            item = self._item_from_db(int(first["type_id"]))
-            if item:
-                return item
-            raise ValueError("找到了相似物品，但缓存数据不完整，请换个准确名称。")
-
-        suggestions = ""
-        with self._connect() as con:
-            rows = con.execute(
-                "select name_zh from items order by updated_at desc limit 6"
-            ).fetchall()
-        if rows:
-            suggestions = suggestion_list([row["name_zh"] for row in rows])
-        extra = f" 最近查过：{suggestions}" if suggestions else ""
         raise ValueError(
-            f"没找到「{raw_name}」。中文名要尽量用游戏内全名；也可以到插件后台加别名。{extra}"
+            f"没找到「{raw_name}」。只支持游戏内完整名称，中文或英文都可以。"
         )
 
     # ------------------------------------------------------------------ prices
@@ -511,17 +411,19 @@ class EveMarketPlugin(Star):
             )
 
     async def _summary_for(self, item: MarketItem) -> tuple[PriceSummary, bool]:
-        station = self.station_id if self.station_only else None
-        key = f"{item.type_id}:{self.region_id}:{station}:{self.max_pages}"
+        is_plex = item.type_id == PLEX_TYPE_ID
+        region_id = PLEX_REGION_ID if is_plex else self.region_id
+        station = None if is_plex else (self.station_id if self.station_only else None)
+        key = f"{item.type_id}:{region_id}:{station}:{self.max_pages}"
         cached = self._cache_get(key)
         if cached:
             return PriceSummary(**cached), True
 
         orders, pages = await self.client.market_orders(
-            item.type_id, self.region_id, self.max_pages
+            item.type_id, region_id, self.max_pages
         )
         summary = summarize_orders(orders, station_id=station, pages=pages)
-        if self.station_only and summary.sell_min is None and summary.buy_max is None:
+        if station is not None and summary.sell_min is None and summary.buy_max is None:
             summary = summarize_orders(orders, station_id=None, pages=pages)
             summary.used_station = False
         self._cache_set(key, summary.as_dict())
@@ -532,9 +434,14 @@ class EveMarketPlugin(Star):
         if not item_name:
             return self.help_text()
         item = await self._resolve_item(item_name)
+        if item.type_id == PLEX_TYPE_ID and not has_explicit_quantity(args):
+            quantity = PLEX_DEFAULT_QUANTITY
         summary, from_cache = await self._summary_for(item)
-        label = JITA_STATION_NAME if summary.used_station else "吉他星域"
-        source = "缓存" if from_cache else "ESI"
+        if item.type_id == PLEX_TYPE_ID:
+            label = f"{PLEX_REGION_NAME}（PLEX）"
+        else:
+            label = JITA_STATION_NAME if summary.used_station else "吉他星域"
+        source = "宁静官方 ESI（缓存）" if from_cache else "宁静官方 ESI"
         return format_price(
             item,
             summary,
@@ -548,12 +455,11 @@ class EveMarketPlugin(Star):
         names = self.command_names()
         first = names[0] if names else "查价"
         return (
-            f"用法：{first} <物品名> [数量]\n"
+            f"用法：{first} <物品全名> [数量]\n"
             f"例如：{first} 乌鸦级\n"
-            f"{first} 乌鸦级 10\n"
-            f"{first} 大盾传 x5\n"
-            f"当前市场：{'吉他 4-4' if self.station_only else '吉他星域'}；"
-            "中文别名可在插件后台添加。"
+            f"{first} Raven 10\n"
+            f"{first} PLEX\n"
+            "只支持游戏内完整名称（中文/英文），不支持别名。"
         )
 
     def command_names(self) -> list[str]:
@@ -567,12 +473,13 @@ class EveMarketPlugin(Star):
 
     # ------------------------------------------------------------------ chat
     def _match_command(self, text: str) -> tuple[str, str] | None:
-        text = str(text or "").strip()
+        text = clean_message_text(str(text or ""))
         if not text:
             return None
         at_pattern = r"^(?:(?:@\S+)|(?:\[At:[^\]]+\]))\s*"
         addressed = bool(re.match(at_pattern, text))
         text = re.sub(at_pattern, "", text).strip()
+        text = clean_message_text(text)
         prefixes = self.command_prefixes()
         had_prefix = addressed
         while text and text[0] in prefixes:
@@ -620,11 +527,10 @@ class EveMarketPlugin(Star):
     def stats(self) -> dict[str, int]:
         with self._connect() as con:
             items = con.execute("select count(*) from items").fetchone()[0]
-            aliases = con.execute("select count(*) from aliases").fetchone()[0]
             cached = con.execute(
                 "select count(*) from price_cache where expires_at >= ?", (time.time(),)
             ).fetchone()[0]
-        return {"items": int(items), "aliases": int(aliases), "cached_prices": int(cached)}
+        return {"items": int(items), "cached_prices": int(cached)}
 
     async def api_status(self):
         return json_response(
@@ -644,56 +550,6 @@ class EveMarketPlugin(Star):
                 "last_error": self.last_error,
             }
         )
-
-    async def api_alias_list(self):
-        with self._connect() as con:
-            rows = con.execute(
-                "select alias, target, type_id, created_at from aliases order by created_at desc limit 300"
-            ).fetchall()
-        return json_response(
-            {
-                "ok": True,
-                "items": [
-                    {
-                        "alias": row["alias"],
-                        "target": row["target"],
-                        "type_id": row["type_id"],
-                        "created_at": row["created_at"],
-                    }
-                    for row in rows
-                ],
-            }
-        )
-
-    async def api_alias_add(self):
-        payload = await request.json(default={})
-        alias = str(payload.get("alias") or "").strip()
-        target = str(payload.get("target") or "").strip()
-        if not alias or not target:
-            return error_response("别名和目标都不能为空", status_code=400)
-        if len(alias) > 40 or len(target) > 120:
-            return error_response("别名或目标太长", status_code=400)
-        type_id: int | None = None
-        if target.isdigit():
-            type_id = int(target)
-        else:
-            try:
-                item = await self._resolve_item(target)
-                type_id = item.type_id
-                target = item.display_name
-            except (EsiError, ValueError) as exc:
-                return error_response(f"目标物品解析失败：{exc}", status_code=400)
-        self._upsert_alias(alias, target, type_id)
-        return json_response({"ok": True, "alias": alias, "target": target, "type_id": type_id})
-
-    async def api_alias_delete(self):
-        payload = await request.json(default={})
-        alias = str(payload.get("alias") or "").strip()
-        if not alias:
-            return error_response("缺少别名", status_code=400)
-        with self._connect() as con:
-            con.execute("delete from aliases where alias_norm=?", (normalize_name(alias),))
-        return json_response({"ok": True})
 
     async def api_cache_clear(self):
         with self._connect() as con:
@@ -719,8 +575,6 @@ class EveMarketPlugin(Star):
             mapping["cache_ttl"] = _as_int(payload.get("cache_ttl"), 300, 0, 86400)
         if "max_pages" in payload:
             mapping["max_pages"] = _as_int(payload.get("max_pages"), 10, 1, 50)
-        if "extra_aliases" in payload:
-            mapping["extra_aliases"] = str(payload.get("extra_aliases") or "")
         self.config.update(mapping)
         self.enabled = _as_bool(self.config.get("enabled"), True)
         self.station_only = _as_bool(self.config.get("station_only"), True)
@@ -728,7 +582,6 @@ class EveMarketPlugin(Star):
         self.region_id = _as_int(self.config.get("region_id"), JITA_REGION_ID, 1, 2_000_000_000)
         self.cache_ttl = _as_int(self.config.get("cache_ttl"), 300, 0, 86400)
         self.max_pages = _as_int(self.config.get("max_pages"), 10, 1, 50)
-        self._load_extra_aliases()
         try:
             saver = getattr(self.config, "save_config_async", None)
             if saver:

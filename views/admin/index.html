@@ -13,7 +13,7 @@
         <div>
           <p class="em-kicker">ASTRBOT PLUGIN · EVE ONLINE</p>
           <h1>吉他市场查价</h1>
-          <p class="em-sub">只查吉他 4-4 的实时买卖单；价格来自 ESI，不是估算。</p>
+          <p class="em-sub">只查吉他 4-4 的实时买卖单；PLEX 自动查 GPMR-01。价格来自 ESI，不是估算。</p>
         </div>
         <div class="em-header-actions">
           <button class="em-btn em-btn-ghost" id="em-refresh" type="button">刷新</button>
@@ -24,7 +24,7 @@
         <div class="em-card"><span>状态</span><strong id="em-enabled">-</strong></div>
         <div class="em-card"><span>市场</span><strong id="em-market">-</strong></div>
         <div class="em-card"><span>缓存报价</span><strong id="em-cache">-</strong></div>
-        <div class="em-card"><span>别名</span><strong id="em-aliases-count">-</strong></div>
+        <div class="em-card"><span>已缓存物品</span><strong id="em-items-count">-</strong></div>
       </section>
 
       <p class="em-hint" id="em-hint">正在读取插件状态…</p>
@@ -68,32 +68,19 @@
                 <input id="em-field-pages" type="number" min="1" max="50" step="1" />
               </label>
             </div>
-            <label class="em-row">
-              <span>额外别名（一行一个：别名=物品名）</span>
-              <textarea id="em-field-extra" rows="5" placeholder="大盾传=Large Shield Transporter II&#10;小乌鸦=乌鸦级"></textarea>
-            </label>
-            <p class="em-note">更完整的设置也可以直接用 AstrBot 的插件配置页；这里保存的是同一份配置。</p>
+            <p class="em-note">只支持游戏内完整名称（中文或英文），不设别名。PLEX 固定查询 GPMR-01 市场，默认数量 500。</p>
           </form>
         </div>
 
         <div class="em-panel">
           <div class="em-panel-head">
-            <h2>别名管理</h2>
+            <h2>查询规则</h2>
           </div>
-          <form class="em-inline-form" id="em-alias-form">
-            <input id="em-alias-name" type="text" placeholder="别名，例如 大盾传" />
-            <input id="em-alias-target" type="text" placeholder="物品名或 type_id" />
-            <button class="em-btn em-btn-primary" type="submit">添加</button>
-          </form>
-          <div class="em-table-wrap">
-            <table class="em-table">
-              <thead>
-                <tr><th>别名</th><th>目标</th><th>type_id</th><th></th></tr>
-              </thead>
-              <tbody id="em-alias-rows">
-                <tr><td colspan="4" class="em-empty">加载中…</td></tr>
-              </tbody>
-            </table>
+          <div class="em-rules">
+            <p><strong>完整名称</strong>：如 <code>乌鸦级</code>、<code>Raven</code>、<code>PLEX</code>。</p>
+            <p><strong>数量</strong>：名称后加数字，如 <code>乌鸦级 10</code>。</p>
+            <p><strong>不做模糊匹配</strong>：短名、俗称、少字都不会自动猜。</p>
+            <p><strong>PLEX</strong>：自动使用 GPMR-01 市场；不填数量时按 500 计。</p>
           </div>
         </div>
       </section>

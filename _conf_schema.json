@@ -48,10 +48,5 @@
     "type": "int",
     "description": "ESI 请求超时秒数",
     "default": 15
-  },
-  "extra_aliases": {
-    "type": "text",
-    "description": "额外别名，一行一个：别名=物品名（或 type_id）",
-    "default": ""
   }
 }

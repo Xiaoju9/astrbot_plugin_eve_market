@@ -7,6 +7,7 @@ from market_core import (
     JITA_STATION_ID,
     MarketItem,
     PriceSummary,
+    clean_message_text,
     format_price,
     normalize_name,
     parse_command_args,
@@ -29,7 +30,18 @@ class ParseTests(unittest.TestCase):
 
     def test_quantity_suffix(self) -> None:
         self.assertEqual(parse_command_args("乌鸦级 10"), ("乌鸦级", 10))
-        self.assertEqual(parse_command_args("大盾传 x5"), ("大盾传", 5))
+        self.assertEqual(parse_command_args("狞獾级海军型 x5"), ("狞獾级海军型", 5))
+
+    def test_message_id_suffix_is_stripped(self) -> None:
+        self.assertEqual(
+            parse_command_args("狞獾级海军型 [MSG_ID:-1850447759]"),
+            ("狞獾级海军型", 1),
+        )
+        self.assertEqual(parse_command_args("plex [MSG_ID:1479643879]"), ("plex", 1))
+
+    def test_clean_message_text(self) -> None:
+        self.assertEqual(clean_message_text("乌鸦级 [MSG_ID:123]"), "乌鸦级")
+        self.assertEqual(clean_message_text("[MSG_ID:123] 乌鸦级"), "乌鸦级")
 
     def test_item_with_space(self) -> None:
         self.assertEqual(parse_command_args("Large Shield Transporter II"), ("Large Shield Transporter II", 1))
@@ -131,9 +143,11 @@ class SummaryTests(unittest.TestCase):
             fetched_at=datetime(2026, 10, 26, tzinfo=timezone.utc),
         )
         self.assertIn("乌鸦级", text)
-        self.assertIn("123.00M ISK", text)
-        self.assertIn("120.00M ISK", text)
-        self.assertIn("10 件", text)
+        self.assertIn("乌鸦级*10", text)
+        self.assertIn(" -出售：123,000,000 ISK（12）", text)
+        self.assertIn(" -收购：120,000,000 ISK（30）", text)
+        self.assertIn(" -中间：121,500,000 ISK", text)
+        self.assertIn("数据来源：宁静官方 ESI", text)
 
 
 class NormalizeTests(unittest.TestCase):
