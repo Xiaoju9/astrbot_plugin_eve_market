@@ -20,7 +20,6 @@ import aiohttp
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
-from astrbot.api.message_components import At
 from astrbot.api.star import Context, Star, StarTools
 from astrbot.api.web import error_response, json_response, request
 
@@ -31,7 +30,6 @@ try:  # plugin package import
         JITA_STATION_NAME,
         PLEX_DEFAULT_QUANTITY,
         PLEX_REGION_ID,
-        PLEX_REGION_NAME,
         PLEX_TYPE_ID,
         MarketItem,
         PriceSummary,
@@ -51,7 +49,6 @@ except ImportError:  # local unit tests
         JITA_STATION_NAME,
         PLEX_DEFAULT_QUANTITY,
         PLEX_REGION_ID,
-        PLEX_REGION_NAME,
         PLEX_TYPE_ID,
         MarketItem,
         PriceSummary,
@@ -438,16 +435,11 @@ class EveMarketPlugin(Star):
         if item.type_id == PLEX_TYPE_ID and not has_explicit_quantity(args):
             quantity = PLEX_DEFAULT_QUANTITY
         summary, from_cache = await self._summary_for(item)
-        if item.type_id == PLEX_TYPE_ID:
-            label = f"{PLEX_REGION_NAME}（PLEX）"
-        else:
-            label = JITA_STATION_NAME if summary.used_station else "吉他星域"
         source = "宁静官方 ESI（缓存）" if from_cache else "宁静官方 ESI"
         return format_price(
             item,
             summary,
             quantity=quantity,
-            station_label=label,
             fetched_at=datetime.now(timezone.utc),
             source_note=source,
         )
@@ -510,7 +502,6 @@ class EveMarketPlugin(Star):
             return
         _, args = matched
         event.stop_event()
-        event.set_extra("command_bare", True)
         if not args:
             yield event.plain_result(self.help_text())
             return
@@ -522,12 +513,7 @@ class EveMarketPlugin(Star):
             self.last_error = f"{type(exc).__name__}: {exc}"
             logger.exception("[EveMarket] query failed: %s", exc)
             reply = "查价失败了，ESI 或物品名可能有问题；稍后再试一次。"
-        result = event.plain_result(reply[:1800])
-        sender_id = str(event.get_sender_id() or "")
-        if sender_id:
-            sender_name = str(event.get_sender_name() or sender_id)
-            result.chain.insert(0, At(name=sender_name, qq=sender_id))
-        yield result
+        yield event.plain_result(reply[:1800])
 
     # ------------------------------------------------------------------ web
     def stats(self) -> dict[str, int]:

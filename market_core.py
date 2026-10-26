@@ -211,7 +211,6 @@ def format_price(
     summary: PriceSummary,
     *,
     quantity: int = 1,
-    station_label: str = JITA_STATION_NAME,
     fetched_at: datetime | None = None,
     source_note: str = "宁静官方 ESI",
 ) -> str:
@@ -222,8 +221,8 @@ def format_price(
          -出售：1,234 ISK(volume)
          -收购：1,200 ISK(volume)
          -中间：1,217 ISK
-    AstrBot cannot send the ``<p>`` wrapper, so the layout is kept and the
-    location/source footer is added as plain text.
+    AstrBot cannot send the ``<p>`` wrapper, so the layout is kept and only
+    the data-source footer is added as plain text.
     """
     name = item.display_name if isinstance(item, MarketItem) else str(item)
     if isinstance(item, MarketItem) and item.type_id == PLEX_TYPE_ID:
