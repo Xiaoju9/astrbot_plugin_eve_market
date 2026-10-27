@@ -62,7 +62,7 @@ except ImportError:  # local unit tests
         summarize_orders,
     )
 
-PLUGIN_NAME = "astrbot_plugin_eve_market"
+PLUGIN_NAME = "eve_market"
 ESI_BASE = "https://esi.evetech.net/latest"
 DEFAULT_COMMANDS = "查价,市场,eve"
 

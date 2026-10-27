@@ -1,5 +1,5 @@
-name: astrbot_plugin_eve_market
-display_name: EVE 市场查价
+name: eve_market
+display_name: eve_市场查价
 version: v1.2.0
 author: Xiaoju9
 desc: "EVE 吉他市场查价：只认游戏内完整物品名，ESI 实时买卖单，PLEX 自动查 GPMR-01。"

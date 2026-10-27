@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 <img src="logo.png" width="120" alt="EVE Market logo">
 
@@ -19,7 +19,7 @@
 
 ## 简介
 
-`astrbot_plugin_eve_market` 是一个给 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 用的 EVE Online 市场查价插件。
+`eve_market` 是一个给 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 用的 EVE Online 市场查价插件。
 
 它不做本地估价，也不让模型“凭印象报价”：每次查询都直接请求 **ESI 公开市场订单**，按空间站过滤后给出卖单最低价、收单最高价、中间价和挂单量。
 
@@ -61,13 +61,13 @@
 
 ```bash
 cd /path/to/astrbot/data/plugins
-git clone https://github.com/Xiaoju9/astrbot_plugin_eve_market.git
+git clone https://github.com/Xiaoju9/astrbot_plugin_eve_market.git eve_market
 ```
 
 确认目录结构是：
 
 ```text
-data/plugins/astrbot_plugin_eve_market/
+data/plugins/eve_market/
 ├── main.py
 ├── market_core.py
 ├── metadata.yaml
@@ -87,7 +87,7 @@ pip install -r requirements.txt
 ### 升级
 
 ```bash
-cd /path/to/astrbot/data/plugins/astrbot_plugin_eve_market
+cd /path/to/astrbot/data/plugins/eve_market
 git pull
 ```
 
@@ -185,7 +185,7 @@ PLEX 不在 The Forge 的普通市场挂单，插件会自动查 **GPMR-01**：
 登录 AstrBot 后台后打开：
 
 ```text
-http://127.0.0.1:6185/#/plugin-view/astrbot_plugin_eve_market/admin
+http://127.0.0.1:6185/#/plugin-view/eve_market/admin
 ```
 
 端口以你的 AstrBot WebUI 实际地址为准。
@@ -242,7 +242,7 @@ python -m unittest discover -s tests -v
 仓库结构：
 
 ```text
-astrbot_plugin_eve_market/
+eve_market/
 ├── main.py                 # AstrBot 插件入口、ESI 客户端、后台 API
 ├── market_core.py          # 纯 Python 市场逻辑，可独立测试
 ├── metadata.yaml           # AstrBot 插件元数据
